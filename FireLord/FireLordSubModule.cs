@@ -1,6 +1,7 @@
-﻿using FireLord.Settings;
-using TaleWorlds.Core;
-using TaleWorlds.Library;
+﻿using System;
+using FireLord.Settings;
+using HarmonyLib;
+using SandBox.Missions.MissionLogics;
 using TaleWorlds.MountAndBlade;
 
 namespace FireLord
@@ -9,33 +10,44 @@ namespace FireLord
     {
         public static string ModName => "Fire Lord";
         public static string ModuleName => "FireLord";
-        public static string Version => "1.1.3";
+        public static string Version => "1.2.0";
 
-        public static Timer LoadSettingsTimer;
+        private readonly Harmony _harmony = new Harmony("DontDiePatch");
 
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+        private static extern bool AllocConsole();
 
-
-        protected override void OnApplicationTick(float dt)
+        protected override void OnSubModuleLoad()
         {
-            if (LoadSettingsTimer != null && LoadSettingsTimer.Check(MBCommon.GetTime(MBCommon.TimeType.Application)))
+            FireLordConfig.Init();
+
+            var original = typeof(BattleAgentLogic).GetMethod("OnAgentRemoved");
+            var prefix = typeof(DontDiePatch).GetMethod("Prefix");
+
+            try
             {
-                LoadSettingsTimer = null;
-                FireLordSettings.Instance.Load();
+                _harmony.Patch(original, new HarmonyMethod(prefix));
+            }
+            catch (Exception e)
+            {
+                AllocConsole();
+
+                Console.WriteLine(e);
             }
         }
 
-        public override void OnMissionBehaviourInitialize(Mission mission)
+        public override void OnMissionBehaviorInitialize(Mission mission)
         {
-            FireLordSettings.Instance.Save();
-            IgnitionLogic ignitionLogic = new IgnitionLogic();
-            mission.AddMissionBehaviour(ignitionLogic);
-            mission.AddMissionBehaviour(new FireArrowLogic(ignitionLogic));
-            mission.AddMissionBehaviour(new FireSwordLogic(ignitionLogic));
+            var ignitionLogic = new IgnitionLogic();
+            mission.AddMissionBehavior(ignitionLogic);
+            mission.AddMissionBehavior(new FireArrowLogic(ignitionLogic));
+            mission.AddMissionBehavior(new FireSwordLogic(ignitionLogic));
         }
 
-        protected override void OnGameStart(Game game, IGameStarter gameStarterObject)
+        protected override void OnSubModuleUnloaded()
         {
-            game.GameTextManager.LoadGameTexts($"{BasePath.Name}/Modules/{ModuleName}/ModuleData/module_strings.xml");
+            _harmony.UnpatchAll(_harmony.Id);
         }
     }
 }

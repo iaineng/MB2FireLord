@@ -1,10 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
-using TaleWorlds.Library;
 
 namespace FireLord.Utils
 {
@@ -19,21 +17,21 @@ namespace FireLord.Utils
         [DllImport("kernel32", EntryPoint = "GetPrivateProfileString")]
         private static extern uint GetPrivateProfileStringA(string section, string key, string def, byte[] retVal, int size, string filePath);
 
-        private string FilePath = "";
-        private string Section = "";
+        private readonly string _filePath;
+        private readonly string _section;
 
-        private Dictionary<string, string> List = new Dictionary<string, string>();
+        private Dictionary<string, string> _list = new Dictionary<string, string>();
 
         /// <summary>
         /// INI工具类
         /// </summary>
-        /// <param name="_filePath"></param>
-        /// <param name="_section"></param>
-        public IniHelper(string _filePath = "config.ini", string _section = "default")
+        /// <param name="filePath"></param>
+        /// <param name="section"></param>
+        public IniHelper(string filePath = "config.ini", string section = "default")
         {
-            FilePath = _filePath;
+            _filePath = filePath;
 
-            Section = _section;
+            _section = section;
 
             Reload();
         }
@@ -43,15 +41,15 @@ namespace FireLord.Utils
         /// </summary>
         public void Reload()
         {
-            this.List = new Dictionary<string, string>();
+            _list = new Dictionary<string, string>();
 
-            List<string> keyList = _getKeyList();
+            var keyList = _getKeyList();
             foreach (var key in keyList)
             {
-                if (this.List.ContainsKey(key))
-                    this.List[key] = Get(key);
+                if (_list.ContainsKey(key))
+                    _list[key] = Get(key);
                 else
-                    this.List.Add(key, Get(key));
+                    _list.Add(key, Get(key));
             }
         }
 
@@ -61,7 +59,7 @@ namespace FireLord.Utils
         /// <returns></returns>
         public string[] GetKeyList()
         {
-            return this.List.Keys.ToArray();
+            return _list.Keys.ToArray();
         }
 
         /// <summary>
@@ -70,12 +68,12 @@ namespace FireLord.Utils
         /// <returns></returns>
         private List<string> _getKeyList()
         {
-            List<string> result = new List<string>();
-            byte[] buf = new byte[65536];
-            uint len = GetPrivateProfileStringA(Section, null, null, buf, buf.Length, FilePath);
+            var result = new List<string>();
+            var buf = new byte[65536];
+            var len = GetPrivateProfileStringA(_section, null, null, buf, buf.Length, _filePath);
 
-            int j = 0;
-            for (int i = 0; i < len; i++)
+            var j = 0;
+            for (var i = 0; i < len; i++)
                 if (buf[i] == 0)
                 {
                     result.Add(Encoding.Default.GetString(buf, j, i - j));
@@ -93,13 +91,13 @@ namespace FireLord.Utils
         /// <returns></returns>
         public string Get(string key, string defaultVal = "")
         {
-            if (this.List.ContainsKey(key))
+            if (_list.TryGetValue(key, out var value))
             {
-                return this.List[key];
+                return value;
             }
 
-            StringBuilder s = new StringBuilder(1024);
-            GetPrivateProfileString(Section, key, defaultVal, s, 1024, FilePath);
+            var s = new StringBuilder(1024);
+            GetPrivateProfileString(_section, key, defaultVal, s, 1024, _filePath);
 
             return s.ToString();
         }
@@ -111,8 +109,8 @@ namespace FireLord.Utils
         /// <param name="val"></param>
         public void Set(string key, string val)
         {
-            this.List[key] = val;
-            WritePrivateProfileString(Section, key, val, FilePath);
+            _list[key] = val;
+            WritePrivateProfileString(_section, key, val, _filePath);
         }
 
         /// <summary>
@@ -121,8 +119,8 @@ namespace FireLord.Utils
         /// <param name="key"></param>
         public void Del(string key)
         {
-            this.List.Remove(key);
-            WritePrivateProfileString(Section, key, null, FilePath);
+            _list.Remove(key);
+            WritePrivateProfileString(_section, key, null, _filePath);
         }
 
         /// <summary>
@@ -133,10 +131,9 @@ namespace FireLord.Utils
         /// <returns></returns>
         public int GetInt(string key, int defaultVal = 0)
         {
-            string str = Get(key, defaultVal.ToString());
+            var str = Get(key, defaultVal.ToString());
 
-            int val = defaultVal;
-            bool bo = int.TryParse(str, out val);
+            var bo = int.TryParse(str, out var val);
 
             return bo ? val : defaultVal;
         }
@@ -149,10 +146,9 @@ namespace FireLord.Utils
         /// <returns></returns>
         public float GetFloat(string key, float defaultVal = 0)
         {
-            string str = Get(key, defaultVal.ToString());
+            var str = Get(key, defaultVal.ToString(CultureInfo.InvariantCulture));
 
-            float val = defaultVal;
-            bool bo = float.TryParse(str, out val);
+            var bo = float.TryParse(str, out var val);
 
             return bo ? val : defaultVal;
         }
@@ -165,7 +161,7 @@ namespace FireLord.Utils
         /// <returns></returns>
         public bool GetBool(string key, bool defaultVal = false)
         {
-            string str = Get(key, defaultVal ? "1" : "0");
+            var str = Get(key, defaultVal ? "1" : "0");
 
             return str == "1";
         }
@@ -187,7 +183,7 @@ namespace FireLord.Utils
         /// <param name="val"></param>
         public void SetFloat(string key, float val)
         {
-            Set(key, val.ToString());
+            Set(key, val.ToString(CultureInfo.InvariantCulture));
         }
 
         /// <summary>
